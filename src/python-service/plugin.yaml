@@ -1,0 +1,4 @@
+name: python-service
+version: 0.1.0
+description: >-
+  FastAPI services and lifecycle modules: the technology stack and design patterns, skills for endpoints, ports, and store queries, and a ruff hook on edited Python files.

@@ -1,0 +1,22 @@
+---
+description: Security-first Terraform rules for bootstrap and infrastructure repositories
+globs: ["**/*.tf", "**/*.tfvars", "**/*.tftest.hcl"]
+---
+
+# Terraform
+
+A bootstrap repository is the elevated boundary. It creates deployer roles, GitHub OIDC trust, state backends, KMS, networking, and resource shells. Application repositories only update what it creates. Treat every change as high blast radius.
+
+- Plan before apply. Apply only a reviewed saved plan (`terraform plan -out=...`). CI applies only on `main`, behind a protected GitHub Environment, with the apply role scoped by OIDC. Never add an unbounded `-auto-approve` path.
+- One module per resource shell under `modules/`. The bootstrap root composes focused modules.
+- One deployer role per application repository and environment (`dev`, `staging`, `prod`). It may update only its existing shell. It must not create privileged resources, rewrite trust, or attach admin policies. Cross-environment access is forbidden.
+- Trust policies use the immutable GitHub OIDC subject form (`ORG@owner_id/REPO@repo_id`).
+- Least privilege everywhere. No `*` actions on IAM, no `AdministratorAccess`.
+- No long-lived access keys anywhere. No secret values in `.tf`, `.tfvars`, examples, or state. Use Secrets Manager, SSM SecureString, and KMS, and pass references.
+- Remote state in S3 with locking, SSE-KMS, and versioning. App deployer roles cannot write the state bucket.
+- Pin `required_version` and every provider (Terraform 1.17.x in CI, AWS provider `>= 5.80, < 7`).
+- Tag every taggable resource with project, environment, owner, and managed-by.
+- Public exposure is off by default: S3 Block Public Access, encryption at rest, TLS in transit, audit logging for elevated resources.
+- Prefer idle-cost shapes (Lambda, S3, CloudFront, Aurora Serverless v2). No always-on compute without a documented need.
+- Destroy, replace, trust rewrites, KMS, state, and bucket policy changes need explicit review. The pull request states the blast radius and the rollback.
+- Before committing, run `terraform fmt`, `terraform validate`, and `tflint`, and fix everything they report.

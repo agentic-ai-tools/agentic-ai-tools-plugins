@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "python ./scripts/on_edit.py .py .pyi -- ruff format"
+      },
+      {
+        "command": "python ./scripts/on_edit.py .py .pyi -- ruff check"
+      }
+    ]
+  }
+}

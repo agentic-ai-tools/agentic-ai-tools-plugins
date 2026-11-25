@@ -1,0 +1,9 @@
+{
+  "name": "postgres-flyway",
+  "version": "0.1.0",
+  "description": "Schema repositories and modules that own a schema: Flyway naming, forward-only additive migrations, Postgres conventions, and the migrations image.",
+  "author": {
+    "name": "Agentic AI Tools"
+  },
+  "skills": "./rule-skills/"
+}

@@ -1,0 +1,3 @@
+after-edit:
+  - command: python {root}/scripts/on_edit.py .py .pyi -- ruff format
+  - command: python {root}/scripts/on_edit.py .py .pyi -- ruff check

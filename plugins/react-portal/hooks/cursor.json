@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "node ./scripts/on_edit.mjs .ts .tsx .js .jsx .mjs -- npx --no-install oxlint"
+      }
+    ]
+  }
+}

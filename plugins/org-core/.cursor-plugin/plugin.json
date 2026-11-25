@@ -1,0 +1,9 @@
+{
+  "name": "org-core",
+  "version": "0.1.0",
+  "description": "Organization rules for every Agentic AI Tools repository: branching, pull requests, TDD, lint before commit, commit attribution, and secrets.",
+  "author": {
+    "name": "Agentic AI Tools"
+  },
+  "rules": "./rules/"
+}

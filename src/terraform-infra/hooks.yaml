@@ -1,0 +1,2 @@
+after-edit:
+  - command: python {root}/scripts/on_edit.py .tf .tfvars -- terraform fmt

@@ -1,0 +1,9 @@
+{
+  "name": "terraform-infra",
+  "version": "0.1.0",
+  "description": "Bootstrap and infrastructure repositories: module per shell, deployer-role scope, GitHub OIDC with immutable subjects, apply gates, and a terraform fmt hook.",
+  "author": {
+    "name": "Agentic AI Tools"
+  },
+  "skills": "./rule-skills/"
+}

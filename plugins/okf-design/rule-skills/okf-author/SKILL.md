@@ -1,0 +1,26 @@
+---
+name: okf-author
+description: Write and edit knowledge as OKF v0.3 concepts. Use when reading or editing **/*.md.
+---
+
+# Author concepts
+
+New knowledge is a concept. `README.md` and `AGENTS.md` stay without `type`. Do not name a concept `index.md` or `log.md`.
+
+```yaml
+---
+type: Flow
+title: Budget block
+description: A budget check uses the price-table estimate and blocks the task before it is offered to the gateway.
+tags: [finops, execution]
+---
+```
+
+- `type` is one of Overview, Lifecycle Stage, Capability, Decision, Reference, Flow.
+- `description` is one sentence. Put that same sentence in the parent `index.md` in the same change.
+- A subdirectory `index.md` has no frontmatter. The root `index.md` keeps `okf_version: "0.3"`.
+- Quote values that look like numbers or booleans. Extension keys use the bundle's `x-` prefix, such as `x-d3-`.
+- Keep frontmatter keys you do not recognize.
+- On a Decision, set the bundle's state and id keys. To replace one, set `status: deprecated` and `superseded_by`. Do not delete it.
+
+Link a decision. Do not paste it into a flow.

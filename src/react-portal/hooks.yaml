@@ -1,0 +1,2 @@
+after-edit:
+  - command: node {root}/scripts/on_edit.mjs .ts .tsx .js .jsx .mjs -- npx --no-install oxlint

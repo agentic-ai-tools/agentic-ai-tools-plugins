@@ -1,0 +1,22 @@
+---
+description: Python practices for services, libraries, tests, and scripts
+globs: ["**/*.py"]
+---
+
+# Python
+
+Python 3.12 for Lambda runtimes and images. Published libraries support 3.11 and later. New modules start with `from __future__ import annotations`. Prefer `pathlib.Path` and timezone-aware UTC `datetime`. Do not add a dependency the standard library already covers.
+
+Type public functions. Use `Any` only for values that are already untyped JSON.
+
+No bare `except`. Catch the specific error. `except Exception` belongs only at a job or request boundary that records the failure and sets a defined status.
+
+Never pass request or model data to `shell=True`, `eval`, or `pickle`. SQL is raw SQL with named parameters, never string formatting:
+
+```python
+conn.execute("SELECT * FROM cases WHERE id = %(case_id)s", {"case_id": case_id})
+```
+
+Never log tokens, passwords, signing secrets, or `Authorization` headers.
+
+Toolchain: Pydantic v2 and pydantic-settings with a cached `get_settings()`, httpx (tests use `httpx.MockTransport`), boto3 (tests use moto), pytest with `asyncio_mode = "auto"`, and 80% coverage or more on libraries. ruff is the formatter and linter, pinned to one minor, line length 100, rules `E`, `F`, `I`, `UP`, `B`, `W`.

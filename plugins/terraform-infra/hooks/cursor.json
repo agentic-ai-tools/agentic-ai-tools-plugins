@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "python ./scripts/on_edit.py .tf .tfvars -- terraform fmt"
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "extraKnownMarketplaces": {
+    "agentic-ai-tools": {
+      "source": { "source": "github", "repo": "agentic-ai-tools/agentic-ai-tools-plugins" }
+    }
+  },
+  "enabledPlugins": {
+    "org-core@agentic-ai-tools": true,
+    "python-service@agentic-ai-tools": true
+  }
+}

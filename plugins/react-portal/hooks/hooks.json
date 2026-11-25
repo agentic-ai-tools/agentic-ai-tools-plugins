@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}\"/scripts/on_edit.mjs .ts .tsx .js .jsx .mjs -- npx --no-install oxlint"
+          }
+        ]
+      }
+    ]
+  }
+}
