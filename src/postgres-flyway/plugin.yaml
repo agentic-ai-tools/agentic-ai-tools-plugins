@@ -1,4 +1,4 @@
 name: postgres-flyway
-version: 0.1.0
+version: 0.2.0
 description: >-
-  Schema repositories and modules that own a schema: Flyway naming, forward-only additive migrations, Postgres conventions, and the migrations image.
+  Schema repositories and modules that own a schema: Flyway naming, forward-only additive migrations, migration safety and tenant isolation, Postgres conventions, and the migrations image.
