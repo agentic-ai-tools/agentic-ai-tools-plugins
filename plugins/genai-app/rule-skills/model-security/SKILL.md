@@ -1,0 +1,20 @@
+---
+name: model-security
+description: STRIDE-AI security rules for code that builds prompts, calls models, retrieves context, or acts on model output. Use when reading or editing **/*.py, **/*.ts, **/*.tsx, **/prompts/**.
+---
+
+# Model security
+
+Model output is untrusted input from whoever controls any text that reached the model. A model instruction lowers the odds of an attack but is never a control.
+
+- **Indirect and direct prompt injection.** Text the system did not write (retrieved pages, documents, knowledge-base facts, tool results, file contents) enters a prompt delimited and labelled as data, never as instructions. The person's own text is also data. Nothing in either can change which tools, data, or permissions the call has.
+- **Improper output handling.** Parse model output into a schema (Pydantic, Zod) and reject what does not fit. Check values in code before they are stored, rendered, used in a query, or passed to a tool. Render model output as text or as sanitised Markdown with HTML off.
+- **Proposals, not decisions.** A model proposes; a person or a deterministic check confirms. A model result that tries to set a confirmed or authoritative value is rejected.
+- **Excessive agency.** A model can call only tools allowlisted for the task. Each tool call is authorized in code for the person and tenant, with the narrowest credentials, and destructive or expensive tools need explicit confirmation.
+- **Model inversion and leakage.** Build context only from the caller's tenant and the caller's own data. Never put secrets, credentials, or another tenant's data in a prompt. Treat the system prompt as public.
+- **Data and model poisoning.** Mark statements that come only from the model, or from unverified sources, as not grounded. Record each retrieved source with the output.
+- **Provenance.** Record the model id, the prompt template version, and the inputs and sources for every output that matters, so it can be reproduced and audited.
+- **Model impersonation and supply chain.** Reach models only through the provider SDK with workload identity. Pin model ids and version prompt templates in the repository. Only modules named in configuration may answer as a model-backed component.
+- **Resource exhaustion.** Check input size before the call. Set a maximum output token limit on every call. Enforce a per-person or per-tenant spend cap before the call, not after.
+- **Telemetry.** Never log prompts, completions, tool arguments, or retrieved content. Log the model id, token counts, latency, and outcome.
+- **Testing.** Keep an evaluation set of scripted conversations, including attempts to make the model supply authoritative values, and prompt-injection probes through every retrieval source (for example with Garak or promptfoo). A change to a model id or a prompt template must pass both in CI.

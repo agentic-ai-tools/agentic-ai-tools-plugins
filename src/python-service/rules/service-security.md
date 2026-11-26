@@ -1,0 +1,17 @@
+---
+description: Security rules for FastAPI services - authentication, authorization, tenant isolation, SQL, outbound requests, errors, and logs
+globs: ["app/**/*.py", "src/**/*.py"]
+---
+
+# Service security
+
+- Every route except liveness requires an authenticated caller. The token's issuer, audience, signature, expiry, and role are checked on every request, not cached past the token's life.
+- Authorize in the service, per operation, against the caller's role and ownership. A router never decides access by itself.
+- The tenant comes from the verified token through configuration, never from the request body, path, query, or a header the client sets. Every query filters on the caller's tenant.
+- SQL uses named parameters only. Never build SQL with f-strings, `%`, or `.format`, including table or column names from input.
+- Never fetch a URL taken from a user or a model in a component that can reach the database or the internal network. Outbound requests go to allowlisted hosts, with redirects limited and private and link-local addresses refused.
+- Error responses carry the stable `code` and a safe `detail`: no stack traces, SQL, exception class names, file paths, or internal hostnames.
+- Logs and spans carry ids, never request bodies, prompts, tokens, `Authorization` or `Cookie` headers, connection strings, or pre-signed URLs.
+- Secrets come from the platform's secret store at runtime, by reference. Never read them from source, fixtures, or committed config.
+- Uploads and request bodies are size-checked before parsing, and their content is checked rather than their declared type.
+- Each security control has a test that proves it refuses: a forged or expired token, another tenant's id, a wrong role, an oversized body.

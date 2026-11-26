@@ -1,0 +1,9 @@
+{
+  "name": "genai-app",
+  "version": "0.1.0",
+  "description": "Repositories that call models: STRIDE-AI security rules for prompts, retrieval, model output, and tools, reliability and cost rules for model calls, and a skill for adding a model call safely.",
+  "author": {
+    "name": "Agentic AI Tools"
+  },
+  "rules": "./rules/"
+}

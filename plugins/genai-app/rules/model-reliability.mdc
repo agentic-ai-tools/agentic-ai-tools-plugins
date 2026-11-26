@@ -1,0 +1,15 @@
+---
+description: Reliability and cost rules for model calls - timeouts, retries, fallbacks, spend caps, and versioned prompts
+globs: '**/*.py,**/*.ts,**/*.tsx,**/prompts/**'
+alwaysApply: false
+---
+
+# Model call reliability
+
+- Every model call has a timeout shorter than its caller's, and a maximum output token limit.
+- Do not retry a model call automatically when it can double spend or repeat an action. Retry only throttling (429) and transient 5xx, with backoff and jitter, inside the caller's timeout. Otherwise mark the work failed and let the person retry it.
+- Long model work runs asynchronously: accept, return a pollable status, and end as complete or failed. Never hold an HTTP request open on a model call.
+- When an optional source (retrieval, a knowledge base, a research module) is missing or failing, continue from the model alone and mark the result not grounded, rather than failing.
+- When the spend cap is reached, refuse before the call with a clear, stable error code, and show the cap and the amount used.
+- Record token counts and latency for every call as metrics, so cost and latency have SLOs and alerts like any other dependency.
+- A model id or prompt template change is a deploy: reviewed, evaluated in CI, and reversible by moving back to the previous version.

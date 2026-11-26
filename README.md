@@ -21,12 +21,13 @@ Hooks run commands on your machine when the agent edits files. Every hook runs o
 
 | Plugin | For | Contains |
 | --- | --- | --- |
-| `org-core` | Every repository | Always-on rules: branching, pull requests, TDD, lint before commit, attribution, secrets |
-| `python-service` | FastAPI services and lifecycle modules | Python and service-layer rules. Skills `add-endpoint`, `add-port`, `add-store-query`. Hook: `ruff format` and `ruff check` on edited Python files |
-| `react-portal` | Portals and SPAs | UI foundations rule. Skills `add-page`, `add-data-table`. Hook: `oxlint` on edited files |
-| `postgres-flyway` | Schema repositories and modules that own a schema | Flyway and Postgres rule |
-| `terraform-infra` | Bootstrap and infrastructure repositories | Terraform rule. Hook: `terraform fmt` on edited files |
+| `org-core` | Every repository | Always-on rules: branching, pull requests, TDD, lint before commit, attribution, secrets, the security baseline, the reliability baseline. Skills `threat-model` (STRIDE and STRIDE-AI, with a checker) and `add-runbook` |
+| `python-service` | FastAPI services and lifecycle modules | Python, service-layer, service security, and service reliability rules. Skills `add-endpoint`, `add-port`, `add-store-query`. Hook: `ruff format` and `ruff check` on edited Python files |
+| `react-portal` | Portals and SPAs | UI foundations and web security rules. Skills `add-page`, `add-data-table`. Hook: `oxlint` on edited files |
+| `postgres-flyway` | Schema repositories and modules that own a schema | Flyway and Postgres, and migration safety rules |
+| `terraform-infra` | Bootstrap and infrastructure repositories | Terraform and infrastructure resilience rules. Hook: `terraform fmt` on edited files |
 | `okf-design` | OKF design bundles | Read and author rules. Skill `okf-check` |
+| `genai-app` | Repositories that call models | Model security (STRIDE-AI: prompt injection, output handling, excessive agency, leakage, poisoning, provenance, spend) and model call reliability rules. Skill `add-model-call` |
 
 ## Install in an Agentic AI Tools repository
 

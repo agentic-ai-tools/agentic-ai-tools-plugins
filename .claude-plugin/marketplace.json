@@ -8,6 +8,12 @@
   },
   "plugins": [
     {
+      "name": "genai-app",
+      "version": "0.1.0",
+      "description": "Repositories that call models: STRIDE-AI security rules for prompts, retrieval, model output, and tools, reliability and cost rules for model calls, and a skill for adding a model call safely.",
+      "source": "./plugins/genai-app"
+    },
+    {
       "name": "okf-design",
       "version": "0.1.0",
       "description": "Open Knowledge Format v0.3 design bundles: reading from indexes, authoring concepts, and a skill that checks frontmatter, index descriptions, and links.",
@@ -15,32 +21,32 @@
     },
     {
       "name": "org-core",
-      "version": "0.1.0",
-      "description": "Organization rules for every Agentic AI Tools repository: branching, pull requests, TDD, lint before commit, commit attribution, and secrets.",
+      "version": "0.2.0",
+      "description": "Organization rules for every Agentic AI Tools repository: branching, pull requests, TDD, lint before commit, commit attribution, secrets, the security and reliability baselines, and skills for threat models and runbooks.",
       "source": "./plugins/org-core"
     },
     {
       "name": "postgres-flyway",
-      "version": "0.1.0",
-      "description": "Schema repositories and modules that own a schema: Flyway naming, forward-only additive migrations, Postgres conventions, and the migrations image.",
+      "version": "0.2.0",
+      "description": "Schema repositories and modules that own a schema: Flyway naming, forward-only additive migrations, migration safety and tenant isolation, Postgres conventions, and the migrations image.",
       "source": "./plugins/postgres-flyway"
     },
     {
       "name": "python-service",
-      "version": "0.1.0",
-      "description": "FastAPI services and lifecycle modules: the technology stack and design patterns, skills for endpoints, ports, and store queries, and a ruff hook on edited Python files.",
+      "version": "0.2.0",
+      "description": "FastAPI services and lifecycle modules: the technology stack and design patterns, security and reliability rules, skills for endpoints, ports, and store queries, and a ruff hook on edited Python files.",
       "source": "./plugins/python-service"
     },
     {
       "name": "react-portal",
-      "version": "0.1.0",
-      "description": "Portals and SPAs: the UI foundations and components standard, skills for pages and data tables, and an oxlint hook on edited files.",
+      "version": "0.2.0",
+      "description": "Portals and SPAs: the UI foundations and components standard, web security and resilience rules, skills for pages and data tables, and an oxlint hook on edited files.",
       "source": "./plugins/react-portal"
     },
     {
       "name": "terraform-infra",
-      "version": "0.1.0",
-      "description": "Bootstrap and infrastructure repositories: module per shell, deployer-role scope, GitHub OIDC with immutable subjects, apply gates, and a terraform fmt hook.",
+      "version": "0.2.0",
+      "description": "Bootstrap and infrastructure repositories: module per shell, deployer-role scope, GitHub OIDC with immutable subjects, apply gates, resilience and edge security rules, and a terraform fmt hook.",
       "source": "./plugins/terraform-infra"
     }
   ]
