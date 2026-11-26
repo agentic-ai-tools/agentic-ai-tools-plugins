@@ -1,6 +1,21 @@
 # agentic-ai-tools-plugins
 
-The `agentic-ai-tools` coding-agent plugin marketplace for Claude Code and Cursor. One plugin per stack, written once in `src/` and built into each agent's format. Design: [ADR-029](https://github.com/agentic-ai-tools/d3-forge-design/blob/main/adr/ADR-029-agent-plugin-marketplace.md) and [Agent plugins](https://github.com/agentic-ai-tools/d3-forge-design/blob/main/engineering/agent-plugins.md).
+Coding-agent plugins from [Agentic AI Tools](https://agenticaitools.org) for Claude Code and Cursor. One plugin per stack, written once in `src/` and built into each agent's format.
+
+This repository is public. Anyone can install these plugins. Some plugins (`org-core`, `react-portal`, `okf-design`) encode Agentic AI Tools' own conventions and are most useful in our repositories. Others, such as `python-service`, `postgres-flyway`, and `terraform-infra`, work in any project that uses that stack.
+
+## Use these plugins in your own project
+
+**Claude Code:**
+
+```text
+/plugin marketplace add agentic-ai-tools/agentic-ai-tools-plugins
+/plugin install python-service@agentic-ai-tools
+```
+
+**Cursor:** add `https://github.com/agentic-ai-tools/agentic-ai-tools-plugins` as a plugin marketplace in Cursor's settings, then install the plugins you want.
+
+Hooks run commands on your machine when the agent edits files. Every hook runs only a local formatter or linter (`ruff`, `oxlint`, `terraform fmt`), makes no network call, and reads no secret. Its source is in `src/<plugin>/scripts/`. Read it before you install.
 
 ## Plugins
 
@@ -13,7 +28,7 @@ The `agentic-ai-tools` coding-agent plugin marketplace for Claude Code and Curso
 | `terraform-infra` | Bootstrap and infrastructure repositories | Terraform rule. Hook: `terraform fmt` on edited files |
 | `okf-design` | OKF design bundles | Read and author rules. Skill `okf-check` |
 
-## Install in a repository
+## Install in an Agentic AI Tools repository
 
 **Claude Code.** Commit this to the repository's `.claude/settings.json`, enabling `org-core` plus the stack plugins it needs:
 
@@ -34,8 +49,6 @@ The `agentic-ai-tools` coding-agent plugin marketplace for Claude Code and Curso
 By hand: `claude plugin marketplace add agentic-ai-tools/agentic-ai-tools-plugins`, then `claude plugin install <plugin>@agentic-ai-tools`.
 
 **Cursor.** On a team plan, import this repository once as the team marketplace and distribute `org-core` to everyone. Without one, each developer adds this repository as a plugin marketplace in Cursor's settings and installs the plugins their repository's `AGENTS.md` lists.
-
-The repository is private, so each developer needs read access to it.
 
 ## Change a plugin
 
@@ -81,3 +94,11 @@ A path in a Cursor manifest replaces Cursor's folder discovery, so Cursor never 
 
 - **Cursor hooks.** Cursor's hook reference page was unavailable. Still to check: the `afterFileEdit` stdin field (the runner reads `file_path`), and whether hooks run from the plugin folder (the Cursor commands use `./scripts/...`). Check both in Cursor before the first release.
 - **`python` on PATH.** The Python hooks call `python`. On machines where only `python3` exists, they fail to start.
+
+## Contributing
+
+Issues and pull requests are welcome. A pull request changes `src/` and includes the regenerated `plugins/` output from `python scripts/build.py`.
+
+## License
+
+[MIT](LICENSE)

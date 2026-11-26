@@ -3,10 +3,15 @@ name = "agentic-ai-tools-plugins"
 version = "0.1.0"
 description = "Builds the agentic-ai-tools agent plugin marketplace for Claude Code and Cursor."
 requires-python = ">=3.12"
+license = "MIT"
 dependencies = ["pyyaml>=6.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff==0.8.*"]
+
+# Not a package: install only pulls the build and test tools. Keeps egg-info out of src/.
+[tool.setuptools]
+packages = []
 
 [tool.ruff]
 target-version = "py312"
