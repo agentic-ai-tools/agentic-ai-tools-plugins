@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "feature-spec",
-      "version": "0.1.0",
-      "description": "Feature specifications as OKF concepts: write a spec from a prompt with design-repo context, citable item IDs allocated safely across machines, consistency review with deprecation of contradicted items, decomposition into parallel child specs, and plan-mode prompts. A hook checks edited specs.",
+      "version": "0.2.0",
+      "description": "Feature specifications as OKF concepts: write a spec from a prompt with design-repo context, citable item IDs allocated safely across machines, consistency review with deprecation of contradicted items, decomposition into parallel child specs, plan-mode prompts, and shared work claims on origin so parallel agents see each other's work. A hook checks edited specs.",
       "source": "./plugins/feature-spec"
     },
     {
@@ -21,7 +21,7 @@
     },
     {
       "name": "okf-design",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Open Knowledge Format v0.3 design bundles: reading from indexes, authoring concepts, and a skill that checks frontmatter, index descriptions, and links.",
       "source": "./plugins/okf-design"
     },
@@ -39,7 +39,7 @@
     },
     {
       "name": "python-service",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "FastAPI services and lifecycle modules: the technology stack and design patterns, security and reliability rules, skills for endpoints, ports, and store queries, and a ruff hook on edited Python files.",
       "source": "./plugins/python-service"
     },
@@ -51,7 +51,7 @@
     },
     {
       "name": "terraform-infra",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Bootstrap and infrastructure repositories: module per shell, deployer-role scope, GitHub OIDC with immutable subjects, apply gates, resilience and edge security rules, and a terraform fmt hook.",
       "source": "./plugins/terraform-infra"
     }

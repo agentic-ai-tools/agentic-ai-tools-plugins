@@ -35,3 +35,11 @@ def test_reports_each_problem(tmp_path: Path) -> None:
         "g/b.md: not listed in its index.md",
         "g/b.md: unknown type 'Essay'",
     ]
+
+
+def test_json_escapes_and_nested_fences(tmp_path: Path) -> None:
+    write(tmp_path / "g/index.md", '# G\n\n* [A](a.md) - Café "fast" path.\n')
+    body = "\n````text\n```python\n[in code](nowhere.md)\n```\n````\n~~~\n[x](gone.md)\n~~~\n"
+    head = '---\ntype: Flow\ntitle: "A"\ndescription: "Caf\\u00e9 \\"fast\\" path."\n---\n'
+    write(tmp_path / "g/a.md", head + body)
+    assert check_okf.check(tmp_path) == []

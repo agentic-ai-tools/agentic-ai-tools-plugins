@@ -21,4 +21,4 @@ python -m ruff format . && python -m ruff check .
 
 ## Plugins
 
-`org-core`, `python-service`.
+`org-core`, `python-service`, `feature-spec`.

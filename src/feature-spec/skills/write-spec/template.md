@@ -15,7 +15,7 @@ x-fs-created: "{created}"
 
 # {id} {title}
 
-Original prompt: [{id} prompt](prompts/{id}.md).
+Original prompt: [{prompt_id} prompt](prompts/{prompt_id}.md).
 
 ## 1. Context
 

@@ -22,6 +22,10 @@ def edited_path(payload: dict) -> str | None:
 def main(argv: list[str]) -> int:
     sep = argv.index("--")
     suffixes, command = set(argv[:sep]), argv[sep + 1 :]
+    if command and command[0] == "python":
+        command[0] = (
+            sys.executable
+        )  # the interpreter running this hook, even where only python3 exists
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError:

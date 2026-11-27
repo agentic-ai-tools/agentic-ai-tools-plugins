@@ -54,7 +54,9 @@ def test_hooks_map_to_each_agent(repo: Path) -> None:
     files = build.build(repo)
     claude = json.loads(files["plugins/demo/hooks/hooks.json"])["hooks"]["PostToolUse"][0]
     assert claude["matcher"] == "Write|Edit"
-    assert claude["hooks"][0]["command"] == 'python "${CLAUDE_PLUGIN_ROOT}"/scripts/x.py'
+    assert claude["hooks"][0]["command"] == (
+        '"$(command -v python3 || command -v python)" "${CLAUDE_PLUGIN_ROOT}"/scripts/x.py'
+    )
     cursor = json.loads(files["plugins/demo/hooks/cursor.json"])
     assert cursor == {"hooks": {"afterFileEdit": [{"command": "python ./scripts/x.py"}]}}
 
@@ -115,6 +117,31 @@ def test_on_edit_reads_both_payload_shapes(tmp_path: Path) -> None:
     assert cursor.returncode == 2
     assert run_on_edit({"file_path": str(target)}, ".tf", *fail).returncode == 0
     assert run_on_edit({"file_path": str(target)}, ".py", "--", "no-such-tool").returncode == 0
+    show = ("--", "python", "-c", "import sys; print(sys.executable); sys.exit(1)")
+    assert sys.executable in run_on_edit({"file_path": str(target)}, ".py", *show).stderr
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_on_edit_mjs_keeps_a_path_with_spaces_whole(tmp_path: Path) -> None:
+    target = tmp_path / "dir with space" / "a.ts"
+    write(target, "x\n")
+    show = tmp_path / "show.mjs"
+    show.write_text("console.log(JSON.stringify(process.argv.slice(2))); process.exit(1);\n")
+    res = subprocess.run(
+        [
+            "node",
+            str(ROOT / "src/react-portal/scripts/on_edit.mjs"),
+            ".ts",
+            "--",
+            "node",
+            str(show),
+        ],
+        input=json.dumps({"file_path": str(target)}),
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 2
+    assert json.loads(res.stderr.strip()) == [str(target)]
 
 
 def test_shared_scripts_go_only_to_plugins_whose_hooks_run_them(repo: Path) -> None:

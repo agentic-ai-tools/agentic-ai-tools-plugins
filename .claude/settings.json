@@ -6,6 +6,7 @@
   },
   "enabledPlugins": {
     "org-core@agentic-ai-tools": true,
-    "python-service@agentic-ai-tools": true
+    "python-service@agentic-ai-tools": true,
+    "feature-spec@agentic-ai-tools": true
   }
 }
