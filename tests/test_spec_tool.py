@@ -347,6 +347,10 @@ def test_plan_carries_contracts_externals_shared_files_and_branch_warning(repo: 
     assert "`v0.1.0` (" not in out and "https" not in out
     assert out.startswith("# Planning prompts for FS-001\n\nWARNING: the spec files differ")
     assert "red-then-green" in out and "claims`" in out and "release FS-002`" in out
+    assert (
+        out.count("Stop and ask the user before planning further") == 3
+    )  # two leaf prompts and the integration prompt
+    assert "blast radius" in out and "cost against benefit" in out
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "x")
     git(repo, "push", "-q", "origin", "HEAD:main")

@@ -16,6 +16,22 @@ Run `ST plan FS-NNN` from the repository root, and show the user its output unch
 - If an **external prerequisite** such as `acme-contracts@v0.1.0` is listed, check that it is released before wave 1 starts.
 - If the user asks you to plan one of them in this session, enter plan mode and use that spec's prompt as the request.
 
+## Design gaps and decisions
+
+Every prompt ends with a decision gate, and it applies in this session too. Stop and ask the user, before planning further, when:
+
+- the design or the spec leaves a gap that the plan would fill with its own choice, such as who owns a data store, which contract to use, or a security or cost trade-off;
+- the plan would contradict, supersede, or narrow an existing decision record (ADR);
+- the plan needs a decision that no ADR records.
+
+Never decide it yourself and never edit an ADR from a plan. Before asking about an ADR change:
+
+1. **Blast radius.** Search the design repository for the ADR's ID and title. List every ADR, design document, contract, spec, and repository that cites or builds on it, what each would have to change, and what is already built on it.
+2. **Cost and benefit.** Weigh the work and risk of the change across that radius against what it gains and what keeping the current decision costs. Recommend one option.
+3. **Ask** with those facts, offering: fit the plan to the current decision, change the ADR, or write a new ADR. Up to four questions at a time, with AskUserQuestion where it exists.
+
+An ADR change or a new ADR is its own pull request in the design repository, merged before the code that depends on it. If the answer changes the spec, update it with the `write-spec` skill and run `ST plan` again.
+
 ## Shared work claims
 
 Agents building in parallel keep a shared record of their work on `origin`, under `refs/feature-specs/claims/`. Every prompt tells its session to do this. Before offering parallel sessions, run `ST claims` and show the user any existing claim or `OVERLAP` line.

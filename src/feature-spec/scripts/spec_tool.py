@@ -674,6 +674,23 @@ def waves(leaves: list[str], specs: dict[str, Spec]) -> list[list[str]]:
     return out
 
 
+DECISION_GATE = (
+    "Stop and ask the user before planning further when the design or the spec leaves a gap "
+    "the plan would fill with its own choice (an owner, a data store, a contract, a security "
+    "or cost trade-off), when the plan would contradict, supersede, or narrow an existing "
+    "decision record (ADR), or when it needs a decision no ADR records. Do not decide it "
+    "yourself, and do not edit an ADR. For a change to an ADR, first find its blast radius: "
+    "search the design repository for the ADR's ID and title, and list every ADR, design "
+    "document, contract, spec, and repository that cites or builds on it, what each would "
+    "have to change, and what is already built on it. Then weigh cost against benefit: the "
+    "work and risk of the change across that radius against what it gains and what not "
+    "changing it costs. Ask with those facts and a recommendation, offering to fit the plan "
+    "to the current decision, change the ADR, or write a new ADR. An ADR change or a new ADR "
+    "is its own design pull request, merged before the code. Continue only once the user "
+    "decides."
+)
+
+
 def plan_prompt(sid: str, specs: dict[str, Spec]) -> str:
     s = specs[sid]
     lines = [
@@ -717,6 +734,7 @@ def plan_prompt(sid: str, specs: dict[str, Spec]) -> str:
         "to a test. Plan nothing the spec puts out of scope. Where the spec is ambiguous, ask "
         "instead of guessing."
     )
+    lines.append(DECISION_GATE)
     lines.append(
         f"Other agents may be building related specs. Before writing code, run `{tool} claims` "
         f"to see their work, then `{tool} claim {sid} --files <every file the plan edits>`. "
@@ -808,6 +826,7 @@ def cmd_plan(root: Path, sid: str) -> str:
             f"satisfy these feature-level acceptance criteria: {', '.join(criteria)}. "
             "Every step names the criterion it serves. Where the spec is ambiguous, ask "
             "instead of guessing.",
+            DECISION_GATE,
             "```",
         ]
     return "\n".join(out)
