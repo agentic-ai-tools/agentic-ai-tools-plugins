@@ -5,6 +5,7 @@ usage: python check_okf.py [bundle-root]    prints one problem per line, exits 1
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -24,8 +25,18 @@ def frontmatter(text: str) -> dict[str, str]:
     for line in text[4:end].splitlines() if end > 0 else []:
         key, sep, value = line.partition(":")
         if sep and not line.startswith((" ", "-")):
-            meta[key.strip()] = value.strip().strip('"').strip("'")
+            meta[key.strip()] = scalar(value.strip())
     return meta
+
+
+def scalar(value: str) -> str:
+    """A double-quoted YAML scalar with JSON escapes (\\u00e9, \\") reads like JSON."""
+    if value.startswith('"'):
+        try:
+            return str(json.loads(value))
+        except json.JSONDecodeError:
+            pass
+    return value.strip('"').strip("'")
 
 
 def index_entries(index: Path) -> dict[str, str]:
@@ -58,11 +69,13 @@ def check(root: Path) -> list[str]:
                     problems.append(f"{rel}: not listed in its index.md")
                 elif meta.get("description") and listed[path.name] != meta["description"]:
                     problems.append(f"{rel}: index description differs from frontmatter")
-        in_code = False
+        fence = ""
         for line in text.splitlines():
-            if line.lstrip().startswith("```"):
-                in_code = not in_code
-            if in_code:
+            m = re.match(r"^\s*(`{3,}|~{3,})", line)
+            if m and (not fence or m.group(1).startswith(fence)):
+                fence = "" if fence else m.group(1)
+                continue
+            if fence:
                 continue
             for target in LINK.findall(line):
                 if re.match(r"^([a-z][a-z0-9+.-]*:|#)", target):

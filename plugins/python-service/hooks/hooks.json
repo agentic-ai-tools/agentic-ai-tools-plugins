@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/on_edit.py .py .pyi -- ruff format"
+            "command": "\"$(command -v python3 || command -v python)\" \"${CLAUDE_PLUGIN_ROOT}\"/scripts/on_edit.py .py .pyi -- ruff format"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/on_edit.py .py .pyi -- ruff check"
+            "command": "\"$(command -v python3 || command -v python)\" \"${CLAUDE_PLUGIN_ROOT}\"/scripts/on_edit.py .py .pyi -- ruff check"
           }
         ]
       }

@@ -1,4 +1,4 @@
 name: okf-design
-version: 0.1.0
+version: 0.2.0
 description: >-
   Open Knowledge Format v0.3 design bundles: reading from indexes, authoring concepts, and a skill that checks frontmatter, index descriptions, and links.

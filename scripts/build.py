@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -31,6 +32,8 @@ EVENTS = {
 }
 SOURCE_ENTRIES = {"plugin.yaml", "rules", "skills", "agents", "scripts", "hooks.yaml", "mcp.yaml"}
 CLAUDE_ROOT = '"${CLAUDE_PLUGIN_ROOT}"'
+# Claude Code runs hooks in bash (Git Bash on Windows); stock macOS has python3 but no python.
+CLAUDE_PYTHON = '"$(command -v python3 || command -v python)"'
 # Cursor runs plugin hooks from the plugin directory; its docs show only relative paths.
 CURSOR_ROOT = "."
 ALWAYS_ON = "context/always-on.md"
@@ -120,7 +123,10 @@ def build_hooks(src: Path, always: list[str], out: dict[str, str]) -> None:
             if set(entry) != {"command"}:
                 raise BuildError(f"{src / 'hooks.yaml'}: {event} entries take only 'command'")
             cmd = entry["command"]
-            group = {"hooks": [{"type": "command", "command": cmd.replace("{root}", CLAUDE_ROOT)}]}
+            claude_cmd = re.sub(r"^python ", CLAUDE_PYTHON + " ", cmd).replace(
+                "{root}", CLAUDE_ROOT
+            )
+            group = {"hooks": [{"type": "command", "command": claude_cmd}]}
             if matcher:
                 group = {"matcher": matcher, **group}
             claude.setdefault(claude_event, []).append(group)

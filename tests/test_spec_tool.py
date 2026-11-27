@@ -424,3 +424,12 @@ def test_design_lists_context_repos_and_prefers_role_rows(tmp_path: Path) -> Non
     assert f"context: {tmp_path / 'acme-contracts'}" in out
     assert out.count("context:") == 1
     assert "| `acme-web-api` | the API |" in out and "gh repo list" not in out
+
+
+def test_cli_new_child_without_prompt_and_ship(repo: Path) -> None:
+    (parent,) = new(repo, "Parent")
+    assert st.main(["--root", str(repo), "new", "--title", "Child", "--parent", "FS-001"]) == 0
+    fill(parent)
+    fill(next((repo / "docs/features").glob("FS-002-*.md")))
+    assert st.main(["--root", str(repo), "ship", "FS-001"]) == 0
+    assert st.main(["--root", str(repo), "ship", "FS-001"]) == 1  # already implemented
