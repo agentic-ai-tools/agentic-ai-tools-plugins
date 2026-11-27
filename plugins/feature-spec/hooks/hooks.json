@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/on_edit.py .md -- python \"${CLAUDE_PLUGIN_ROOT}\"/scripts/spec_tool.py check"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -15,7 +15,7 @@ This repository is public. Anyone can install these plugins. Some plugins (`org-
 
 **Cursor:** add `https://github.com/agentic-ai-tools/agentic-ai-tools-plugins` as a plugin marketplace in Cursor's settings, then install the plugins you want.
 
-Hooks run commands on your machine when the agent edits files. Every hook runs only a local formatter or linter (`ruff`, `oxlint`, `terraform fmt`), makes no network call, and reads no secret. Its source is in `src/<plugin>/scripts/`. Read it before you install.
+Hooks run commands on your machine when the agent edits files. Every hook runs only a local formatter, linter, or checker (`ruff`, `oxlint`, `terraform fmt`, the `feature-spec` checker), makes no network call, and reads no secret. The `feature-spec` skill `write-spec` (not its hook) pushes a ref under `refs/feature-specs/` to `origin` to reserve each spec ID. Its source is in `src/<plugin>/scripts/`, or `src/_shared/scripts/` for a script several plugins use. Read it before you install.
 
 ## Plugins
 
@@ -28,6 +28,7 @@ Hooks run commands on your machine when the agent edits files. Every hook runs o
 | `terraform-infra` | Bootstrap and infrastructure repositories | Terraform and infrastructure resilience rules. Hook: `terraform fmt` on edited files |
 | `okf-design` | OKF design bundles | Read and author rules. Skill `okf-check` |
 | `genai-app` | Repositories that call models | Model security (STRIDE-AI: prompt injection, output handling, excessive agency, leakage, poisoning, provenance, spend) and model call reliability rules. Skill `add-model-call` |
+| `feature-spec` | Every repository that keeps feature specifications | Skill `write-spec` writes a spec from a prompt as an OKF concept in `docs/features/`, with citable item IDs (`FS-012.3.1`) reserved on `origin` so parallel agents never collide, context from the matching design repository, questions for anything missing, a consistency review that deprecates contradicted items, and decomposition into child specs. Skill `plan-spec` prints plan-mode prompts in parallel waves. Agents `spec-context` (Haiku) and `spec-reviewer` (Sonnet). Hook: checks edited specs |
 
 ## Install in an Agentic AI Tools repository
 

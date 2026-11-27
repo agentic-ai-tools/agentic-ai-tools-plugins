@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `feature-spec` 0.1.0: new plugin. Skills `write-spec` and `plan-spec`, agents `spec-context` and `spec-reviewer`, `spec_tool.py` (ID reservation on `origin`, OKF indexes, check, deprecate, plan waves), and a hook that checks edited specs.
+- Build: `src/_shared/scripts/` holds scripts several plugins use, such as `on_edit.py`. The build copies each one into every plugin whose `hooks.yaml` runs it. Generated output is unchanged.
 - `org-core` 0.2.0: always-on security and reliability baselines. Skill `threat-model` writes STRIDE and STRIDE-AI threat models as OKF concepts from a template, including attack chains and layered defences, and `check_threat_model.py` checks the format, scores, chain rule, and residual risk. Skill `add-runbook`.
 - `genai-app` 0.1.0: new plugin for repositories that call models. Model security and model call reliability rules, skill `add-model-call`.
 - `python-service` 0.2.0: service security and service reliability rules.

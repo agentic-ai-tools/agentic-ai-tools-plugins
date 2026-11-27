@@ -1,0 +1,9 @@
+{
+  "name": "feature-spec",
+  "version": "0.1.0",
+  "description": "Feature specifications as OKF concepts: write a spec from a prompt with design-repo context, citable item IDs allocated safely across machines, consistency review with deprecation of contradicted items, decomposition into parallel child specs, and plan-mode prompts. A hook checks edited specs.",
+  "author": {
+    "name": "Agentic AI Tools"
+  },
+  "hooks": "./hooks/cursor.json"
+}
