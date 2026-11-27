@@ -612,7 +612,7 @@ def siblings(root: Path, suffix: str) -> list[Path]:
         re.findall(r"`([\w.-]+)`", agents.read_text(encoding="utf-8")) if agents.exists() else []
     )
     parts = root.name.split("-")
-    names += ["-".join(parts[:k]) + suffix for k in range(len(parts) - 1, 0, -1)]
+    names += ["-".join(parts[:k]) + suffix for k in range(len(parts) - 1, 0, -1)] if suffix else []
     out: list[Path] = []
     for name in names:
         cand = root.parent / name
@@ -735,11 +735,13 @@ def design_files(s: Spec) -> set[str]:
     return {m.removeprefix("./") for m in CODE_PATH.findall(s.section_text(4)) if "/" in m}
 
 
-def off_main(root: Path) -> bool:
-    f = FEATURES.as_posix()
-    if git(root, "diff", "--quiet", "origin/main", "--", f).returncode:
+def off_main(root: Path, paths: list[str]) -> bool:
+    """True if any of paths is missing from, or differs from, origin/main."""
+    if git(root, "diff", "--quiet", "origin/main", "--", *paths).returncode:
         return True
-    return bool(git(root, "ls-files", "--others", "--exclude-standard", "--", f).stdout.strip())
+    return bool(
+        git(root, "ls-files", "--others", "--exclude-standard", "--", *paths).stdout.strip()
+    )
 
 
 def cmd_plan(root: Path, sid: str) -> str:
@@ -756,7 +758,7 @@ def cmd_plan(root: Path, sid: str) -> str:
             "only approved specs are planned; not approved: " + ", ".join(sorted(not_ready))
         )
     out = [f"# Planning prompts for {sid}", ""]
-    if off_main(root):
+    if off_main(root, [specs[x].rel for x in specs if x == sid or is_under(x, sid, specs)]):
         out += [
             "WARNING: the spec files differ from origin/main, or there is no origin/main. "
             "Merge the spec pull request before starting sessions from main.",
