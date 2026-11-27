@@ -224,7 +224,7 @@ def test_plan_orders_children_into_waves(repo: Path) -> None:
     assert out.index("## Wave 1") < out.index("### FS-002") < out.index("### FS-004")
     assert out.index("## Wave 2") < out.index("### FS-003")
     assert "Requirements to implement: FS-003.3.1, FS-003.3.2" in out
-    assert "Design references: acme-design:products/x.md" in out
+    assert "References: acme-design:products/x.md" in out
     assert "Parent spec: FS-001" in out
     c.write_text(c.read_text(encoding="utf-8").replace("status: approved", "status: draft"))
     with pytest.raises(st.ToolError, match="not approved: FS-004"):
@@ -295,3 +295,122 @@ def test_reservation_does_not_publish_the_hostname(repo: Path) -> None:
     ).stdout  # fmt: skip
     assert "reserve FS-001 Thing" in log
     assert socket.gethostname() not in log
+
+
+def test_child_without_prompt_links_the_parent_prompt(repo: Path) -> None:
+    new(repo, "Parent")
+    (child,) = st.cmd_new(repo, ["Child"], None, "FS-001")
+    (grandchild,) = st.cmd_new(repo, ["Grandchild"], None, "FS-002")
+    assert not (repo / "docs/features/prompts/FS-002.md").exists()
+    assert "(prompts/FS-001.md)" in grandchild.read_text(encoding="utf-8")
+    assert "FS-002" not in (repo / "docs/features/prompts/index.md").read_text(encoding="utf-8")
+    assert st.check_all(repo) == []
+    with pytest.raises(st.ToolError, match="--prompt-file is required"):
+        st.cmd_new(repo, ["Orphan"], None, "")
+
+
+def test_new_keeps_existing_docs_in_docs_index(repo: Path) -> None:
+    (repo / "docs").mkdir()
+    (repo / "docs/threat-model.md").write_text(
+        '---\ntype: Reference\ntitle: "Threat model"\ndescription: "STRIDE rows."\n---\n\n# TM\n',
+        encoding="utf-8",
+    )
+    new(repo, "Thing")
+    index = (repo / "docs/index.md").read_text(encoding="utf-8")
+    assert "* [Threat model](threat-model.md) - STRIDE rows." in index
+    assert "features/index.md" in index
+    assert check_okf.check(repo / "docs") == []
+
+
+def test_plan_carries_contracts_externals_shared_files_and_branch_warning(repo: Path) -> None:
+    (repo.parent / "acme-contracts").mkdir()
+    (parent,) = new(repo, "Parent")
+    a, b = new(repo, "A", "B", parent="FS-001")
+    fill(parent, depends="[acme-contracts@v0.1.0]")
+    for p in (a, b):
+        fill(p)
+        text = p.read_text(encoding="utf-8").replace(
+            "Design: `acme-design:products/x.md`.",
+            "Design: `acme-design:products/x.md`, contract `acme-contracts:openapi/api.yaml`.",
+        )
+        p.write_text(text.replace("A table and an endpoint.", "Edits `app/main.py`."))
+    assert st.check_all(repo) == []
+    out = st.cmd_plan(repo, "FS-001")
+    assert "References: acme-contracts:openapi/api.yaml, acme-design:products/x.md" in out
+    assert "acme-contracts is a sibling checkout at ../acme-contracts." in out
+    assert "acme-design was not found next to this repository" in out
+    assert "External prerequisites, released before this wave: acme-contracts@v0.1.0" in out
+    assert "Shared files in wave 1: `app/main.py` (FS-002, FS-003)" in out
+    assert out.startswith("# Planning prompts for FS-001\n\nWARNING: the spec files differ")
+    assert "red-then-green" in out and "claims`" in out and "release FS-002`" in out
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "x")
+    git(repo, "push", "-q", "origin", "HEAD:main")
+    git(repo, "fetch", "-q", "origin")
+    assert "WARNING" not in st.cmd_plan(repo, "FS-001")
+
+
+def test_deprecate_within_the_same_spec(repo: Path) -> None:
+    (path,) = new(repo, "Thing")
+    fill(path)
+    text = path.read_text(encoding="utf-8").replace(
+        "- **FS-001.3.2** The service returns the thing.\n",
+        "- **FS-001.3.2** The service returns the thing.\n"
+        "- **FS-001.3.3** The service returns the thing fast.\n",
+    )
+    path.write_text(text.replace("and FS-001.3.2.", "FS-001.3.2 and FS-001.3.3."))
+    st.cmd_deprecate(repo, "FS-001.3.3", ["FS-001.3.2"])
+    text = path.read_text(encoding="utf-8")
+    assert "> Deprecated by [FS-001.3.3](FS-001-thing.md)" in text
+    assert "x-fs-deprecates: [FS-001.3.2]" in text
+    assert st.check_all(repo) == []
+    with pytest.raises(st.ToolError, match="itself"):
+        st.cmd_deprecate(repo, "FS-001.3.1", ["FS-001.3.1"])
+
+
+def test_ship_marks_the_family_implemented(repo: Path) -> None:
+    (parent,) = new(repo, "Parent")
+    (child,) = new(repo, "Child", parent="FS-001")
+    fill(parent)
+    fill(child, status="draft")
+    with pytest.raises(st.ToolError, match="not approved: FS-002"):
+        st.cmd_ship(repo, "FS-001")
+    fill(child)
+    assert st.cmd_ship(repo, "FS-001") == ["FS-001", "FS-002"]
+    for p in (parent, child):
+        text = p.read_text(encoding="utf-8")
+        assert "x-fs-status: implemented" in text
+        assert text.rstrip().endswith(": implemented.")
+    assert st.check_all(repo) == []
+
+
+def test_claims_are_shared_exclusive_and_released(tmp_path: Path) -> None:
+    import socket
+
+    a = make_repo(tmp_path, "a")
+    b = make_repo(tmp_path, "b", origin=tmp_path / "origin.git")
+    assert st.cmd_claims(b) == ["no claims"]
+    st.cmd_claim(a, "FS-002", ["app/main.py", "app/x.py"])
+    with pytest.raises(st.ToolError, match="FS-002 is already claimed: FS-002 on"):
+        st.cmd_claim(b, "FS-002", ["app/y.py"])
+    st.cmd_claim(b, "FS-003", ["app/main.py"])
+    seen = st.cmd_claims(b)
+    assert any(c.startswith("FS-002 on ") and c.endswith("app/main.py, app/x.py") for c in seen)
+    assert "OVERLAP app/main.py: FS-002, FS-003" in seen
+    assert socket.gethostname() not in "\n".join(seen)
+    st.cmd_release(a, ["FS-002"])
+    assert [c[:6] for c in st.cmd_claims(b)] == ["FS-003"]
+
+
+def test_design_lists_context_repos_and_prefers_role_rows(tmp_path: Path) -> None:
+    root = tmp_path / "acme-api"
+    root.mkdir()
+    (tmp_path / "acme-contracts").mkdir()
+    design = tmp_path / "acme-design"
+    design.mkdir()
+    (design / "a.md").write_text(
+        "Check acme-api with gh repo list.\n| `acme-api` | the API |\n", encoding="utf-8"
+    )
+    out = st.cmd_design(root)
+    assert f"context: {tmp_path / 'acme-contracts'}" in out
+    assert "| `acme-api` | the API |" in out and "gh repo list" not in out

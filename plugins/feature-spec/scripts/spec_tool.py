@@ -1,13 +1,15 @@
-"""Feature specification tool: allocate IDs, check, deprecate, index, and plan specs.
+"""Feature specification tool: allocate IDs, check, deprecate, index, plan, ship, and claim specs.
 
 Specs are OKF v0.3 concepts in docs/features/FS-NNN-<slug>.md. Standard library only.
 
 usage: spec_tool.py [--root DIR] <command> ...
-  new --title T [--title T2 ...] --prompt-file F [--parent FS-n]
+  new --title T [--title T2 ...] [--prompt-file F] [--parent FS-n]
   design | reindex | index
   check [paths...] [--base REF]
   deprecate NEW_ITEM OLD_ITEM [OLD_ITEM ...]
   plan FS-n
+  ship FS-n
+  claim FS-n --files F [F ...] | claims | release FS-n [FS-m ...]
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ FEATURES = Path("docs/features")
 PROMPTS = FEATURES / "prompts"
 TEMPLATE = Path(__file__).resolve().parent.parent / "skills/write-spec/template.md"
 REF_NS = "refs/feature-specs"
+CLAIMS = f"{REF_NS}/claims"
 MAX_TRIES = 20
 UNION_ATTR = "docs/features/**/index.md merge=union"
 
@@ -52,6 +55,8 @@ ITEM = re.compile(r"^\s*(?:[-*]\s+)?\*\*(FS-\d{3,}(?:\.\d+)+)\*\*\s*(.*)$")
 DEPRECATED = re.compile(r"^\s*>\s*Deprecated by \[?(FS-\d{3,}(?:\.\d+)+)")
 REF = re.compile(r"\bFS-\d{3,}(?:\.\d+)*")
 HEADING = re.compile(r"^## (\d+)\. (.+)$")
+REPO_REF = re.compile(r"`([\w.-]+):([^`\s]+\.\w+)`")
+CODE_PATH = re.compile(r"`([\w./-]+\.\w+)`")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 INDEX_LINE = re.compile(r"^\*\s+\[[^\]]*\]\(([^)]+)\)\s+-\s+(.+)$")
 
@@ -207,29 +212,36 @@ def reserve(root: Path, count: int, title: str) -> list[str]:
         if (m := SPEC_FILE.match(p.name))
     }
     nxt = max(local | remote_numbers(root), default=0) + 1
-    tree = git(root, "mktree", stdin="")
-    if tree.returncode:
-        raise ToolError(tree.stderr)
     got: list[str] = []
     for _ in range(MAX_TRIES * count):
         if len(got) == count:
             break
         spec_id = f"FS-{nxt:03d}"
         note = f"reserve {spec_id} {title}\n\n{secrets.token_hex(8)} {os.getpid()} {time.time_ns()}"
-        # GitHub rejects refs to blobs. A parentless commit never fast-forwards over another
-        # reservation, so a push to a ref that already exists is always rejected.
-        commit = git(root, "commit-tree", tree.stdout.strip(), "-m", note)
-        if commit.returncode:
-            raise ToolError(commit.stderr)
-        push = git(root, "push", "--quiet", "origin", f"{commit.stdout.strip()}:{REF_NS}/{spec_id}")
-        if push.returncode == 0:
+        if push_new_ref(root, f"{REF_NS}/{spec_id}", note):
             got.append(spec_id)
-        elif git(root, "ls-remote", "--exit-code", "origin", f"{REF_NS}/{spec_id}").returncode:
-            raise ToolError(f"could not reserve {spec_id} on origin:\n{push.stderr}")
         nxt += 1
     if len(got) < count:
         raise ToolError(f"gave up after {MAX_TRIES * count} tries; reserved {got}")
     return got
+
+
+def push_new_ref(root: Path, ref: str, message: str) -> bool:
+    """Create ref on origin; False if it already exists. Creation is atomic on the remote."""
+    tree = git(root, "mktree", stdin="")
+    if tree.returncode:
+        raise ToolError(tree.stderr)
+    # GitHub rejects refs to blobs. A parentless commit never fast-forwards over another
+    # one, so a push to a ref that already exists is always rejected.
+    commit = git(root, "commit-tree", tree.stdout.strip(), "-m", message)
+    if commit.returncode:
+        raise ToolError(commit.stderr)
+    push = git(root, "push", "--quiet", "origin", f"{commit.stdout.strip()}:{ref}")
+    if push.returncode == 0:
+        return True
+    if git(root, "ls-remote", "--exit-code", "origin", ref).returncode:
+        raise ToolError(f"could not push {ref} to origin:\n{push.stderr}")
+    return False
 
 
 # ---------- writing ----------
@@ -272,11 +284,17 @@ def ensure_union_merge(root: Path) -> None:
         write(attrs, text + ("" if not text or text.endswith("\n") else "\n") + UNION_ATTR + "\n")
 
 
-def cmd_new(root: Path, titles: list[str], prompt_file: Path, parent: str) -> list[Path]:
-    prompt = prompt_file.read_text(encoding="utf-8")
-    if not prompt.strip():
+def cmd_new(
+    root: Path, titles: list[str], prompt_file: Path | None, parent: str = ""
+) -> list[Path]:
+    """A child made without a prompt file links to its root ancestor's prompt log."""
+    if prompt_file is None and not parent:
+        raise ToolError("--prompt-file is required unless --parent is given")
+    prompt = prompt_file.read_text(encoding="utf-8") if prompt_file else ""
+    if prompt_file and not prompt.strip():
         raise ToolError("the prompt is empty")
-    if parent and parent not in load_specs(root)[0]:
+    specs = load_specs(root)[0]
+    if parent and parent not in specs:
         raise ToolError(f"parent {parent} does not exist")
     created = dt.date.today().isoformat()
     template = TEMPLATE.read_text(encoding="utf-8")
@@ -290,12 +308,16 @@ def cmd_new(root: Path, titles: list[str], prompt_file: Path, parent: str) -> li
             "repo": root.name,
             "parent": parent,
             "created": created,
+            "prompt_id": spec_id if prompt else root_spec(parent, specs),
         }
         text = template
         for key, value in values.items():
             text = text.replace("{" + key + "}", value)
         write(root / FEATURES / name, text)
-        write(root / PROMPTS / f"{spec_id}.md", prompt_log(spec_id, title, name, prompt, created))
+        if prompt:
+            write(
+                root / PROMPTS / f"{spec_id}.md", prompt_log(spec_id, title, name, prompt, created)
+            )
         paths.append(root / FEATURES / name)
     ensure_union_merge(root)
     cmd_reindex(root)
@@ -338,7 +360,13 @@ def cmd_reindex(root: Path) -> None:
         "Feature specifications for this repository, with citable item IDs.",
     )
     if not docs_index.exists():
-        write(docs_index, f'---\nokf_version: "0.3"\n---\n\n# Documentation\n\n{entry}\n')
+        lines = []
+        for doc in sorted((root / "docs").glob("*.md")):
+            meta = split_frontmatter(doc.read_text(encoding="utf-8"))[0]
+            if doc.name != "index.md" and meta.get("title") and meta.get("description"):
+                lines.append(index_line(doc.name, str(meta["title"]), str(meta["description"])))
+        body = "\n".join([*lines, entry])
+        write(docs_index, f'---\nokf_version: "0.3"\n---\n\n# Documentation\n\n{body}\n')
     elif "features/index.md" not in (t := docs_index.read_text(encoding="utf-8")):
         write(docs_index, t.rstrip("\n") + f"\n{entry}\n")
 
@@ -404,7 +432,7 @@ def check_spec(s: Spec, specs: dict[str, Spec], root: Path, index: dict[str, str
         if meta.get(key) and meta[key] not in specs:
             p.append(f"{rel}: {key} {meta[key]} does not exist")
     for dep in meta.get("x-fs-depends-on") or []:
-        if dep not in specs:
+        if "@" not in dep and dep not in specs:  # repo@version is an external prerequisite
             p.append(f"{rel}: depends on {dep}, which does not exist")
     sections = {f"{x.id}.{n}" for x in specs.values() for n, _ in x.headings}
     known = {i for x in specs.values() for i in x.items} | set(specs) | sections
@@ -446,9 +474,18 @@ def check_spec(s: Spec, specs: dict[str, Spec], root: Path, index: dict[str, str
             p.append(f"{rel}: a spec that is {status} must have no TODO left")
         if s.section_text(OPEN) != "None.":
             p.append(f"{rel}: a spec that is {status} must have Open questions 'None.'")
-    if not (root / PROMPTS / f"{sid}.md").exists():
+    logs = {sid, root_spec(sid, specs)}
+    if not any((root / PROMPTS / f"{x}.md").exists() for x in logs):
         p.append(f"{rel}: prompt log {PROMPTS.as_posix()}/{sid}.md is missing")
     return p
+
+
+def root_spec(sid: str, specs: dict[str, Spec]) -> str:
+    seen = set()
+    while sid not in seen and (up := (specs[sid].meta.get("x-fs-parent") if sid in specs else "")):
+        seen.add(sid)
+        sid = up
+    return sid
 
 
 def is_under(child: str, ancestor: str, specs: dict[str, Spec]) -> bool:
@@ -534,8 +571,8 @@ def cmd_deprecate(root: Path, new: str, olds: list[str]) -> None:
         target = specs.get(spec_of(old))
         if not target or old not in target.items:
             raise ToolError(f"{old} does not exist")
-        if spec_of(old) == spec_of(new):
-            raise ToolError(f"{old} is in the same spec as {new}")
+        if old == new:
+            raise ToolError(f"{old} cannot deprecate itself")
         if target.items[old].deprecated_by:
             raise ToolError(f"{old} is already deprecated by {target.items[old].deprecated_by}")
         lines = target.path.read_text(encoding="utf-8").splitlines()
@@ -545,7 +582,7 @@ def cmd_deprecate(root: Path, new: str, olds: list[str]) -> None:
             at += 1
         lines.insert(at, f"  > Deprecated by [{new}]({owner.path.name}) on {today}.")
         write(target.path, "\n".join(lines) + "\n")
-    text = owner.path.read_text(encoding="utf-8")
+    text = owner.path.read_text(encoding="utf-8")  # re-read: the owner may be a target
     listed = list(owner.meta.get("x-fs-deprecates") or [])
     listed += [o for o in olds if o not in listed]
     text = re.sub(
@@ -568,6 +605,22 @@ def cmd_index(root: Path) -> str:
     return "\n".join(out)
 
 
+def find_context(root: Path, design: Path | None) -> list[Path]:
+    """Sibling repositories other than the design one: named in AGENTS.md, or <prefix>-contracts."""
+    names = []
+    agents = root / "AGENTS.md"
+    if agents.exists():
+        names = re.findall(r"`([\w.-]+)`", agents.read_text(encoding="utf-8"))
+    parts = root.name.split("-")
+    names += ["-".join(parts[:k]) + "-contracts" for k in range(len(parts) - 1, 0, -1)]
+    out: list[Path] = []
+    for name in names:
+        cand = root.parent / name
+        if cand.is_dir() and cand not in (root, design) and cand not in out:
+            out.append(cand)
+    return out
+
+
 def find_design(root: Path) -> Path | None:
     agents = root / "AGENTS.md"
     if agents.exists():
@@ -586,15 +639,18 @@ def cmd_design(root: Path) -> str:
     design = find_design(root)
     if not design:
         return "design: none"
-    hits = []
+    rows, prose = [], []
     for path in sorted(design.rglob("*.md")):
         if ".git" in path.parts:
             continue
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if root.name in line:
-                hits.append(f"  {path.relative_to(design).as_posix()}:{n}: {line.strip()[:200]}")
-    role = "\n".join(hits[:20]) or f"  no mention of {root.name}"
-    return f"design: {design}\nrepo: {root.name}\nrole:\n{role}"
+                hit = f"  {path.relative_to(design).as_posix()}:{n}: {line.strip()[:200]}"
+                # table rows and headings state roles; prose often only mentions the name
+                (rows if line.lstrip().startswith(("|", "#")) else prose).append(hit)
+    role = "\n".join((rows or prose)[:20]) or f"  no mention of {root.name}"
+    context = "".join(f"\ncontext: {c}" for c in find_context(root, design))
+    return f"design: {design}{context}\nrepo: {root.name}\nrole:\n{role}"
 
 
 def leaves_of(sid: str, specs: dict[str, Spec]) -> list[str]:
@@ -630,9 +686,16 @@ def plan_prompt(sid: str, specs: dict[str, Spec]) -> str:
     parent = s.meta.get("x-fs-parent")
     if parent:
         lines.append(f"Parent spec: {parent} in {specs[parent].rel}. Read its sections 1 and 2.")
-    design = sorted(set(re.findall(r"`([\w.-]+:[^`\s]+\.md)`", s.section_text(1))))
-    if design:
-        lines.append("Design references: " + ", ".join(design))
+    refs = sorted(set(REPO_REF.findall(s.section_text(1))))
+    if refs:
+        lines.append("References: " + ", ".join(f"{r}:{p}" for r, p in refs))
+        here = s.path.parents[2]
+        for repo in sorted({r for r, _ in refs}):
+            lines.append(
+                f"{repo} is a sibling checkout at ../{repo}."
+                if (here.parent / repo).is_dir()
+                else f"{repo} was not found next to this repository; ask where it is."
+            )
     lines.append("Requirements to implement: " + ", ".join(i.id for i in s.active(REQ)))
     lines.append("Acceptance criteria to satisfy: " + ", ".join(i.id for i in s.active(CRIT)))
     olds = s.meta.get("x-fs-deprecates") or []
@@ -641,17 +704,41 @@ def plan_prompt(sid: str, specs: dict[str, Spec]) -> str:
             "Deprecated items whose behaviour changes or goes away: "
             + ", ".join(f"{o} ({specs[spec_of(o)].rel})" for o in olds)
         )
-    deps = s.meta.get("x-fs-depends-on") or []
+    deps = [d for d in s.meta.get("x-fs-depends-on") or [] if "@" not in d]
     if deps:
         lines.append(
             "Depends on: " + ", ".join(f"{d} ({specs[d].meta.get('x-fs-status')})" for d in deps)
         )
+    ext = external(sid, specs)
+    if ext:
+        lines.append("External prerequisites, which must be released first: " + ", ".join(ext))
+    tool = f"python {Path(__file__).resolve().as_posix()}"
     lines.append(
-        "Make the plan test-first. Every step names the requirement or acceptance criterion IDs "
-        "it serves, and every acceptance criterion maps to a test. Plan nothing the spec puts out "
-        "of scope. Where the spec is ambiguous, ask instead of guessing."
+        "Make the plan test-first with a red-then-green checkpoint: each step writes its test, "
+        "runs it and records that it fails, and only then writes the code. Every step names the "
+        "requirement or acceptance criterion IDs it serves, and every acceptance criterion maps "
+        "to a test. Plan nothing the spec puts out of scope. Where the spec is ambiguous, ask "
+        "instead of guessing."
+    )
+    lines.append(
+        f"Other agents may be building related specs. Before writing code, run `{tool} claims` "
+        f"to see their work, then `{tool} claim {sid} --files <every file the plan edits>`. "
+        "If another claim names one of those files, stop and agree a merge order with the user. "
+        f"Run `{tool} release {sid}` once the pull request merges."
     )
     return "\n".join(lines)
+
+
+def external(sid: str, specs: dict[str, Spec]) -> list[str]:
+    return [d for d in specs[sid].meta.get("x-fs-depends-on") or [] if "@" in d]
+
+
+def design_files(s: Spec) -> set[str]:
+    return set(CODE_PATH.findall(s.section_text(4)))
+
+
+def off_main(root: Path) -> bool:
+    return git(root, "diff", "--quiet", "origin/main", "--", FEATURES.as_posix()).returncode != 0
 
 
 def cmd_plan(root: Path, sid: str) -> str:
@@ -667,15 +754,35 @@ def cmd_plan(root: Path, sid: str) -> str:
         raise ToolError(
             "only approved specs are planned; not approved: " + ", ".join(sorted(not_ready))
         )
-    out = [
-        f"# Planning prompts for {sid}",
-        "",
+    out = [f"# Planning prompts for {sid}", ""]
+    if off_main(root):
+        out += [
+            "WARNING: the spec files differ from origin/main, or there is no origin/main. "
+            "Merge the spec pull request before starting sessions from main.",
+            "",
+        ]
+    out += [
         "Specs in the same wave can be planned and built in parallel, each in its own session "
-        "or worktree. Start a wave only after the waves before it are planned.",
+        "or worktree, unless the wave lists shared files. Start a wave only after the waves "
+        "before it are planned.",
         "Open plan mode (Claude Code: /plan or Shift+Tab; Cursor: Plan mode), then send:",
     ]
+    ext = sorted({d for x in {sid, *leaves} for d in external(x, specs)})
     for n, wave in enumerate(waves(leaves, specs), 1):
         out += ["", f"## Wave {n}"]
+        if n == 1 and ext:
+            out += ["", "External prerequisites, released before this wave: " + ", ".join(ext)]
+        owners: dict[str, list[str]] = {}
+        for leaf in wave:
+            for f in design_files(specs[leaf]):
+                owners.setdefault(f, []).append(leaf)
+        for f, who in sorted(owners.items()):
+            if len(who) > 1:
+                out += [
+                    "",
+                    f"Shared files in wave {n}: `{f}` ({', '.join(who)}). Build these one "
+                    "after another, or agree a merge order.",
+                ]
         for leaf in wave:
             out += [
                 "",
@@ -703,6 +810,69 @@ def cmd_plan(root: Path, sid: str) -> str:
     return "\n".join(out)
 
 
+def cmd_ship(root: Path, sid: str) -> list[str]:
+    """Mark a spec and its descendants implemented and log it in each changelog."""
+    specs, _ = load_specs(root)
+    if sid not in specs:
+        raise ToolError(f"{sid} does not exist")
+    family = sorted({sid, *(k for k in specs if is_under(k, sid, specs))}, key=number)
+    not_ready = [x for x in family if specs[x].meta.get("x-fs-status") != "approved"]
+    if not_ready:
+        raise ToolError("only approved specs ship; not approved: " + ", ".join(not_ready))
+    today = dt.date.today().isoformat()
+    for x in family:
+        text = specs[x].path.read_text(encoding="utf-8")
+        text = re.sub(
+            r"^x-fs-status: approved$", "x-fs-status: implemented", text, count=1, flags=re.M
+        )
+        write(specs[x].path, text.rstrip("\n") + f"\n- {today}: implemented.\n")
+    return family
+
+
+def claim_ref(sid: str) -> str:
+    return f"{CLAIMS}/{sid}"
+
+
+def cmd_claims(root: Path) -> list[str]:
+    res = git(root, "fetch", "--quiet", "--prune", "origin", f"+{CLAIMS}/*:{CLAIMS}/*")
+    if res.returncode:
+        raise ToolError("cannot read claims on origin:\n" + res.stderr)
+    refs = git(root, "for-each-ref", "--format=%(refname)", CLAIMS).stdout.split()
+    out: list[str] = []
+    owners: dict[str, list[str]] = {}
+    for ref in refs:
+        try:
+            c = json.loads(git(root, "log", "-1", "--format=%B", ref).stdout)
+            line = f"{c['spec']} on {c['branch']} since {c['date']}: {', '.join(c['files'])}"
+        except (json.JSONDecodeError, KeyError, TypeError):
+            out.append(f"{ref.rsplit('/', 1)[1]}: unreadable claim")
+            continue
+        out.append(line)
+        for f in c["files"]:
+            owners.setdefault(f, []).append(c["spec"])
+    out += [f"OVERLAP {f}: {', '.join(w)}" for f, w in sorted(owners.items()) if len(w) > 1]
+    return out or ["no claims"]
+
+
+def cmd_claim(root: Path, sid: str, files: list[str]) -> None:
+    branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() or "unknown"
+    # no hostname or user: the ref is visible to everyone who can read origin
+    msg = json.dumps(
+        {"spec": sid, "branch": branch, "files": files, "date": dt.date.today().isoformat()}
+    )
+    if not push_new_ref(root, claim_ref(sid), msg):
+        current = [c for c in cmd_claims(root) if c.startswith(sid + " ")]
+        raise ToolError(f"{sid} is already claimed: " + "; ".join(current))
+
+
+def cmd_release(root: Path, sids: list[str]) -> None:
+    res = git(root, "push", "--quiet", "origin", *(f":{claim_ref(s)}" for s in sids))
+    if res.returncode:
+        raise ToolError("cannot release on origin:\n" + res.stderr)
+    for s in sids:
+        git(root, "update-ref", "-d", claim_ref(s))
+
+
 # ---------- CLI ----------
 
 
@@ -717,7 +887,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     new = sub.add_parser("new")
     new.add_argument("--title", action="append", required=True)
-    new.add_argument("--prompt-file", type=Path, required=True)
+    new.add_argument("--prompt-file", type=Path)
     new.add_argument("--parent", default="")
     for name in ("design", "reindex", "index"):
         sub.add_parser(name)
@@ -727,8 +897,13 @@ def main(argv: list[str] | None = None) -> int:
     dep = sub.add_parser("deprecate")
     dep.add_argument("new")
     dep.add_argument("old", nargs="+")
-    pl = sub.add_parser("plan")
-    pl.add_argument("id")
+    for name in ("plan", "ship"):
+        sub.add_parser(name).add_argument("id")
+    cl = sub.add_parser("claim")
+    cl.add_argument("id")
+    cl.add_argument("--files", nargs="+", required=True)
+    sub.add_parser("claims")
+    sub.add_parser("release").add_argument("id", nargs="+")
     args = ap.parse_args(argv)
     root = (args.root or default_root()).resolve()
     try:
@@ -750,6 +925,14 @@ def main(argv: list[str] | None = None) -> int:
             cmd_deprecate(root, args.new, args.old)
         elif args.cmd == "plan":
             print(cmd_plan(root, args.id))
+        elif args.cmd == "ship":
+            print("implemented: " + ", ".join(cmd_ship(root, args.id)))
+        elif args.cmd == "claim":
+            cmd_claim(root, args.id, args.files)
+        elif args.cmd == "claims":
+            print("\n".join(cmd_claims(root)))
+        elif args.cmd == "release":
+            cmd_release(root, args.id)
     except ToolError as exc:
         print(f"spec_tool: {exc}", file=sys.stderr)
         return 1
