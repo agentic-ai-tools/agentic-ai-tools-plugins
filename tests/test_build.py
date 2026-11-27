@@ -96,7 +96,7 @@ def test_check_reports_stale_output(repo: Path) -> None:
 
 
 def run_on_edit(payload: dict, *args: str) -> subprocess.CompletedProcess[str]:
-    script = ROOT / "src/python-service/scripts/on_edit.py"
+    script = ROOT / "src/_shared/scripts/on_edit.py"
     return subprocess.run(
         [sys.executable, str(script), *args],
         input=json.dumps(payload),
@@ -117,9 +117,19 @@ def test_on_edit_reads_both_payload_shapes(tmp_path: Path) -> None:
     assert run_on_edit({"file_path": str(target)}, ".py", "--", "no-such-tool").returncode == 0
 
 
-def test_python_hook_copies_are_identical() -> None:
-    copies = {p.read_text() for p in (ROOT / "src").glob("*/scripts/on_edit.py")}
-    assert len(copies) == 1
+def test_shared_scripts_go_only_to_plugins_whose_hooks_run_them(repo: Path) -> None:
+    write(repo / "src/_shared/scripts/x.py", "print('shared')\n")
+    write(repo / "src/_shared/scripts/unused.py", "")
+    (repo / "src/demo/scripts/x.py").unlink()
+    write(repo / "src/plain/plugin.yaml", "name: plain\nversion: 1.0.0\ndescription: P.\n")
+    files = build.build(repo)
+    assert files["plugins/demo/scripts/x.py"] == "print('shared')\n"
+    assert "plugins/demo/scripts/unused.py" not in files
+    assert not any(k.startswith("plugins/plain/scripts/") for k in files)
+    assert not any(k.startswith("plugins/_shared") for k in files)
+    write(repo / "src/demo/scripts/x.py", "print('x')\n")
+    with pytest.raises(build.BuildError, match="duplicates src/_shared/scripts/x.py"):
+        build.build(repo)
 
 
 @pytest.mark.skipif(shutil.which("claude") is None, reason="Claude Code CLI not installed")

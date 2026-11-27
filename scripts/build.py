@@ -35,6 +35,8 @@ CLAUDE_ROOT = '"${CLAUDE_PLUGIN_ROOT}"'
 CURSOR_ROOT = "."
 ALWAYS_ON = "context/always-on.md"
 RULE_SKILLS = "rule-skills"
+# src/_shared/scripts/<name> goes into each plugin whose hooks.yaml runs {root}/scripts/<name>.
+SHARED = "_shared"
 
 
 class BuildError(Exception):
@@ -140,6 +142,17 @@ def copy_tree(src: Path, prefix: str, out: dict[str, str]) -> None:
             out[f"{prefix}/{path.relative_to(src).as_posix()}"] = path.read_text(encoding="utf-8")
 
 
+def add_shared_scripts(src: Path, out: dict[str, str]) -> None:
+    hooks = src / "hooks.yaml"
+    commands = hooks.read_text(encoding="utf-8") if hooks.exists() else ""
+    for path in sorted((src.parent / SHARED / "scripts").glob("*")):
+        rel = f"scripts/{path.name}"
+        if path.is_file() and f"{{root}}/{rel}" in commands:
+            if rel in out:
+                raise BuildError(f"{src / rel} duplicates src/{SHARED}/{rel}; delete one")
+            out[rel] = path.read_text(encoding="utf-8")
+
+
 def build_plugin(src: Path) -> tuple[dict, dict[str, str]]:
     unknown = {p.name for p in src.iterdir()} - SOURCE_ENTRIES
     if unknown:
@@ -168,6 +181,7 @@ def build_plugin(src: Path) -> tuple[dict, dict[str, str]]:
             raise BuildError(f"{agent}: needs name and description")
     copy_tree(src / "agents", "agents", out)
     copy_tree(src / "scripts", "scripts", out)
+    add_shared_scripts(src, out)
 
     always, scoped = build_rules(src, out)
     for name, rmeta, body in scoped:
@@ -205,7 +219,7 @@ def build(root: Path = ROOT) -> dict[str, str]:
     """Return every generated file as {repo-relative posix path: text}."""
     files: dict[str, str] = {}
     entries = []
-    for src in sorted(p for p in (root / "src").iterdir() if p.is_dir()):
+    for src in sorted(p for p in (root / "src").iterdir() if p.is_dir() and p.name != SHARED):
         meta, out = build_plugin(src)
         for rel, text in out.items():
             files[f"plugins/{src.name}/{rel}"] = text

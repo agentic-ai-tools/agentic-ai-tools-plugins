@@ -15,7 +15,7 @@ This repository is public. Anyone can install these plugins. Some plugins (`org-
 
 **Cursor:** add `https://github.com/agentic-ai-tools/agentic-ai-tools-plugins` as a plugin marketplace in Cursor's settings, then install the plugins you want.
 
-Hooks run commands on your machine when the agent edits files. Every hook runs only a local formatter, linter, or checker (`ruff`, `oxlint`, `terraform fmt`, the `feature-spec` checker), makes no network call, and reads no secret. The `feature-spec` skill `write-spec` (not its hook) pushes a ref under `refs/feature-specs/` to `origin` to reserve each spec ID. Its source is in `src/<plugin>/scripts/`. Read it before you install.
+Hooks run commands on your machine when the agent edits files. Every hook runs only a local formatter, linter, or checker (`ruff`, `oxlint`, `terraform fmt`, the `feature-spec` checker), makes no network call, and reads no secret. The `feature-spec` skill `write-spec` (not its hook) pushes a ref under `refs/feature-specs/` to `origin` to reserve each spec ID. Its source is in `src/<plugin>/scripts/`, or `src/_shared/scripts/` for a script several plugins use. Read it before you install.
 
 ## Plugins
 
