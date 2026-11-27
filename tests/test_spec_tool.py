@@ -331,9 +331,12 @@ def test_plan_carries_contracts_externals_shared_files_and_branch_warning(repo: 
         fill(p)
         text = p.read_text(encoding="utf-8").replace(
             "Design: `acme-design:products/x.md`.",
-            "Design: `acme-design:products/x.md`, contract `acme-contracts:openapi/api.yaml`.",
+            "Design: `acme-design:products/x.md`, contract `acme-contracts:openapi/api.yaml`, "
+            "see `https://example.com/a.html`.",
         )
-        p.write_text(text.replace("A table and an endpoint.", "Edits `app/main.py`."))
+        p.write_text(
+            text.replace("A table and an endpoint.", "Edits `app/main.py`, pins `v0.1.0`.")
+        )
     assert st.check_all(repo) == []
     out = st.cmd_plan(repo, "FS-001")
     assert "References: acme-contracts:openapi/api.yaml, acme-design:products/x.md" in out
@@ -341,6 +344,7 @@ def test_plan_carries_contracts_externals_shared_files_and_branch_warning(repo: 
     assert "acme-design was not found next to this repository" in out
     assert "External prerequisites, released before this wave: acme-contracts@v0.1.0" in out
     assert "Shared files in wave 1: `app/main.py` (FS-002, FS-003)" in out
+    assert "`v0.1.0` (" not in out and "https" not in out.split("References")[1].split("\n")[1]
     assert out.startswith("# Planning prompts for FS-001\n\nWARNING: the spec files differ")
     assert "red-then-green" in out and "claims`" in out and "release FS-002`" in out
     git(repo, "add", "-A")
@@ -348,6 +352,8 @@ def test_plan_carries_contracts_externals_shared_files_and_branch_warning(repo: 
     git(repo, "push", "-q", "origin", "HEAD:main")
     git(repo, "fetch", "-q", "origin")
     assert "WARNING" not in st.cmd_plan(repo, "FS-001")
+    (repo / "docs/features/FS-009-draft.md").write_text("new\n", encoding="utf-8")
+    assert st.off_main(repo)  # an untracked spec is not on main either
 
 
 def test_deprecate_within_the_same_spec(repo: Path) -> None:
@@ -411,6 +417,8 @@ def test_design_lists_context_repos_and_prefers_role_rows(tmp_path: Path) -> Non
     (design / "a.md").write_text(
         "Check acme-api with gh repo list.\n| `acme-api` | the API |\n", encoding="utf-8"
     )
+    (root / "AGENTS.md").write_text("Run `..` from `.`; uses `acme-contracts`.\n", encoding="utf-8")
     out = st.cmd_design(root)
     assert f"context: {tmp_path / 'acme-contracts'}" in out
+    assert out.count("context:") == 1
     assert "| `acme-api` | the API |" in out and "gh repo list" not in out

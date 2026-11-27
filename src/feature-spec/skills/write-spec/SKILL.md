@@ -20,7 +20,7 @@ Scripts do everything that is deterministic. Do not hand-edit IDs, index files, 
 5. **Ask blocking questions first.** If a gap or conflict from step 3 would change the structure of the spec, or every child of it (who owns a data store, which contract version to pin, a requirement the design contradicts), ask the user now, before drafting. Up to four at a time, with AskUserQuestion where it exists.
 6. **Draft.** Fill in every section of the spec file. Keep the headings exactly as they are.
    - Section 1 cites design and contract files as code, `` `<repo>:path/file.ext` ``, and never as links. Any file type is fine, for example `` `acme-contracts:openapi/api.yaml` ``. Put the requirement or decision ID the spec serves in `x-fs-requirement`.
-   - Section 4 names, as code, every file the work edits, for example `` `app/main.py` ``. `plan` uses these names to warn when parallel specs touch the same file.
+   - Section 4 names, as code, every file the work edits, as a path from the repository root, for example `` `app/main.py` `` or `` `./pyproject.toml` ``. `plan` uses these names to warn when parallel specs touch the same file.
    - Each requirement is one testable statement: `- **FS-NNN.3.n** ...`. Each acceptance criterion names the requirements it verifies: `- **FS-NNN.6.n** Verifies FS-NNN.3.1. ...`.
    - Number new items after the highest number used so far. Never renumber an item. A draft item's text may be rewritten until the spec first merges to `main`. After that, an item that is wrong or no longer wanted gets deprecated (step 9).
    - Work that belongs to another repository goes under Out of scope as "spec in `<repository>`".

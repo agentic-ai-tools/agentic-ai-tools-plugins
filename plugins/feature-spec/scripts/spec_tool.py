@@ -55,7 +55,7 @@ ITEM = re.compile(r"^\s*(?:[-*]\s+)?\*\*(FS-\d{3,}(?:\.\d+)+)\*\*\s*(.*)$")
 DEPRECATED = re.compile(r"^\s*>\s*Deprecated by \[?(FS-\d{3,}(?:\.\d+)+)")
 REF = re.compile(r"\bFS-\d{3,}(?:\.\d+)*")
 HEADING = re.compile(r"^## (\d+)\. (.+)$")
-REPO_REF = re.compile(r"`([\w.-]+):([^`\s]+\.\w+)`")
+REPO_REF = re.compile(r"`([\w.-]+):([^`\s/][^`\s]*\.\w+)`")  # not scheme://
 CODE_PATH = re.compile(r"`([\w./-]+\.\w+)`")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 INDEX_LINE = re.compile(r"^\*\s+\[[^\]]*\]\(([^)]+)\)\s+-\s+(.+)$")
@@ -605,34 +605,31 @@ def cmd_index(root: Path) -> str:
     return "\n".join(out)
 
 
-def find_context(root: Path, design: Path | None) -> list[Path]:
-    """Sibling repositories other than the design one: named in AGENTS.md, or <prefix>-contracts."""
-    names = []
+def siblings(root: Path, suffix: str) -> list[Path]:
+    """Sibling folders ending in suffix: names AGENTS.md gives first, then <prefix><suffix>."""
     agents = root / "AGENTS.md"
-    if agents.exists():
-        names = re.findall(r"`([\w.-]+)`", agents.read_text(encoding="utf-8"))
+    names = (
+        re.findall(r"`([\w.-]+)`", agents.read_text(encoding="utf-8")) if agents.exists() else []
+    )
     parts = root.name.split("-")
-    names += ["-".join(parts[:k]) + "-contracts" for k in range(len(parts) - 1, 0, -1)]
+    names += ["-".join(parts[:k]) + suffix for k in range(len(parts) - 1, 0, -1)]
     out: list[Path] = []
     for name in names:
         cand = root.parent / name
-        if cand.is_dir() and cand not in (root, design) and cand not in out:
-            out.append(cand)
+        # a repository name has a dash; this also keeps `.` and `..` out
+        if "-" in name and name.endswith(suffix) and cand.is_dir() and cand != root:
+            out += [cand] if cand not in out else []
     return out
 
 
 def find_design(root: Path) -> Path | None:
-    agents = root / "AGENTS.md"
-    if agents.exists():
-        for name in re.findall(r"`([\w.-]+-design)`", agents.read_text(encoding="utf-8")):
-            if (root.parent / name).is_dir() and name != root.name:
-                return root.parent / name
-    parts = root.name.split("-")
-    for k in range(len(parts) - 1, 0, -1):
-        cand = root.parent / ("-".join(parts[:k]) + "-design")
-        if cand.is_dir() and cand.name != root.name:
-            return cand
-    return None
+    return next(iter(siblings(root, "-design")), None)
+
+
+def find_context(root: Path, design: Path | None) -> list[Path]:
+    """Repositories AGENTS.md names, and <prefix>-contracts, other than the design one."""
+    both = siblings(root, "") + siblings(root, "-contracts")
+    return [c for c in dict.fromkeys(both) if c != design]
 
 
 def cmd_design(root: Path) -> str:
@@ -712,7 +709,7 @@ def plan_prompt(sid: str, specs: dict[str, Spec]) -> str:
     ext = external(sid, specs)
     if ext:
         lines.append("External prerequisites, which must be released first: " + ", ".join(ext))
-    tool = f"python {Path(__file__).resolve().as_posix()}"
+    tool = f'python "{Path(__file__).resolve().as_posix()}"'
     lines.append(
         "Make the plan test-first with a red-then-green checkpoint: each step writes its test, "
         "runs it and records that it fails, and only then writes the code. Every step names the "
@@ -734,11 +731,15 @@ def external(sid: str, specs: dict[str, Spec]) -> list[str]:
 
 
 def design_files(s: Spec) -> set[str]:
-    return set(CODE_PATH.findall(s.section_text(4)))
+    # a path has a slash; `v0.1.0` and `Event.type` are not files
+    return {m.removeprefix("./") for m in CODE_PATH.findall(s.section_text(4)) if "/" in m}
 
 
 def off_main(root: Path) -> bool:
-    return git(root, "diff", "--quiet", "origin/main", "--", FEATURES.as_posix()).returncode != 0
+    f = FEATURES.as_posix()
+    if git(root, "diff", "--quiet", "origin/main", "--", f).returncode:
+        return True
+    return bool(git(root, "ls-files", "--others", "--exclude-standard", "--", f).stdout.strip())
 
 
 def cmd_plan(root: Path, sid: str) -> str:
