@@ -1,0 +1,2 @@
+after-edit:
+  - command: python {root}/scripts/on_edit.py .md -- python {root}/scripts/spec_tool.py check
