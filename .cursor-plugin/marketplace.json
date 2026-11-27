@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "feature-spec",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Feature specifications as OKF concepts: write a spec from a prompt with design-repo context, citable item IDs allocated safely across machines, consistency review with deprecation of contradicted items, decomposition into parallel child specs, plan-mode prompts, and shared work claims on origin so parallel agents see each other's work. A hook checks edited specs.",
       "source": "./plugins/feature-spec"
     },
