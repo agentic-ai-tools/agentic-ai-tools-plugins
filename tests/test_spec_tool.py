@@ -97,7 +97,9 @@ def repo(tmp_path: Path) -> Path:
 
 
 def new(root: Path, *titles: str, parent: str = "") -> list[Path]:
-    prompt = root.parent / "prompt.txt"
+    prompt = (
+        root.parent / f"{root.name}-prompt.txt"
+    )  # one per clone: the race test runs two at once
     prompt.write_text("Build the thing. ```code``` and [a](b).\n", encoding="utf-8")
     return st.cmd_new(root, list(titles), prompt, parent)
 
@@ -254,3 +256,42 @@ def test_design_found_from_agents_md_and_by_sibling_name(tmp_path: Path) -> None
     (tmp_path / "plans-design").mkdir()
     assert st.find_design(root) == tmp_path / "plans-design"
     assert st.cmd_design(tmp_path / "plans") == "design: none"
+
+
+def test_parent_criteria_may_cite_child_requirements_and_sections(repo: Path) -> None:
+    (parent,) = new(repo, "Parent")
+    (child,) = new(repo, "Child", parent="FS-001")
+    (other,) = new(repo, "Other")
+    for p in (parent, child, other):
+        fill(p)
+    text = parent.read_text(encoding="utf-8")
+    text = text.replace(
+        "- **FS-001.3.1** The service stores the thing.\n"
+        "- **FS-001.3.2** The service returns the thing.\n",
+        "Held by the child specs.\n",
+    ).replace("Verifies FS-001.3.1 and FS-001.3.2.", "Verifies FS-002.3.1.")
+    parent.write_text(text.replace("Customers need it.", "See FS-002.4."), encoding="utf-8")
+    assert st.check_all(repo) == []
+    out = st.cmd_plan(repo, "FS-001")
+    assert out.index("## Integration") > out.index("### FS-002")
+    assert "acceptance criteria: FS-001.6.1" in out
+    parent.write_text(
+        parent.read_text(encoding="utf-8").replace("FS-002.3.1.", "FS-003.3.1. See FS-002.11."),
+        encoding="utf-8",
+    )
+    problems = "\n".join(st.check_all(repo))
+    assert "criterion FS-001.6.1 cites no requirement" in problems  # FS-003 is not a child
+    assert "reference FS-002.11 does not exist" in problems
+
+
+def test_reservation_does_not_publish_the_hostname(repo: Path) -> None:
+    import socket
+
+    new(repo, "Thing")
+    log = subprocess.run(
+        ["git", "--git-dir", str(repo.parent / "origin.git"), "log", "--format=%B",
+         "refs/feature-specs/FS-001"],
+        capture_output=True, text=True, check=True,
+    ).stdout  # fmt: skip
+    assert "reserve FS-001 Thing" in log
+    assert socket.gethostname() not in log

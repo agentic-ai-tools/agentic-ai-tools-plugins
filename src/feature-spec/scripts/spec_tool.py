@@ -17,7 +17,7 @@ import datetime as dt
 import json
 import os
 import re
-import socket
+import secrets
 import subprocess
 import sys
 import time
@@ -215,7 +215,7 @@ def reserve(root: Path, count: int, title: str) -> list[str]:
         if len(got) == count:
             break
         spec_id = f"FS-{nxt:03d}"
-        note = f"reserve {spec_id} {title}\n\n{socket.gethostname()} {os.getpid()} {time.time_ns()}"
+        note = f"reserve {spec_id} {title}\n\n{secrets.token_hex(8)} {os.getpid()} {time.time_ns()}"
         # GitHub rejects refs to blobs. A parentless commit never fast-forwards over another
         # reservation, so a push to a ref that already exists is always rejected.
         commit = git(root, "commit-tree", tree.stdout.strip(), "-m", note)
@@ -406,14 +406,21 @@ def check_spec(s: Spec, specs: dict[str, Spec], root: Path, index: dict[str, str
     for dep in meta.get("x-fs-depends-on") or []:
         if dep not in specs:
             p.append(f"{rel}: depends on {dep}, which does not exist")
-    known = {i for x in specs.values() for i in x.items} | set(specs)
+    sections = {f"{x.id}.{n}" for x in specs.values() for n, _ in x.headings}
+    known = {i for x in specs.values() for i in x.items} | set(specs) | sections
     for ref in sorted(set(REF.findall(s.body))):
         if ref not in known:
             p.append(f"{rel}: reference {ref} does not exist")
     reqs = {i.id for i in s.active(REQ)}
     covered = set()
     for c in s.active(CRIT):
-        cites = {r for r in REF.findall(c.text) if r.startswith(f"{sid}.{REQ}.")}
+        # a parent's feature-level criteria may verify requirements its child specs hold
+        cites = {
+            r
+            for r in REF.findall(c.text)
+            if re.fullmatch(rf"FS-\d+\.{REQ}\.\d+", r) and r in known
+            and (spec_of(r) == sid or is_under(spec_of(r), sid, specs))
+        }  # fmt: skip
         if not cites:
             p.append(f"{rel}: criterion {c.id} cites no requirement")
         covered |= cites
@@ -442,6 +449,16 @@ def check_spec(s: Spec, specs: dict[str, Spec], root: Path, index: dict[str, str
     if not (root / PROMPTS / f"{sid}.md").exists():
         p.append(f"{rel}: prompt log {PROMPTS.as_posix()}/{sid}.md is missing")
     return p
+
+
+def is_under(child: str, ancestor: str, specs: dict[str, Spec]) -> bool:
+    seen = set()
+    while child in specs and child not in seen:
+        seen.add(child)
+        child = specs[child].meta.get("x-fs-parent") or ""
+        if child == ancestor:
+            return True
+    return False
 
 
 def check_base(root: Path, specs: dict[str, Spec], base: str) -> list[str]:
@@ -668,6 +685,21 @@ def cmd_plan(root: Path, sid: str) -> str:
                 plan_prompt(leaf, specs),
                 "```",
             ]
+    criteria = [i.id for i in specs[sid].active(CRIT)]
+    if leaves != [sid] and criteria:
+        out += [
+            "",
+            "## Integration, after every wave",
+            "",
+            "```text",
+            f"Plan the integration work for feature specification {sid} "
+            f'"{specs[sid].meta.get("title")}" in {specs[sid].rel}. Its child specs '
+            f"({', '.join(leaves)}) are planned separately. Plan only the tests and glue that "
+            f"satisfy these feature-level acceptance criteria: {', '.join(criteria)}. "
+            "Every step names the criterion it serves. Where the spec is ambiguous, ask "
+            "instead of guessing.",
+            "```",
+        ]
     return "\n".join(out)
 
 

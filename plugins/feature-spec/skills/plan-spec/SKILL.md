@@ -5,7 +5,7 @@ description: Turn an approved feature specification into ready-to-paste prompts 
 
 # Plan a feature specification
 
-The argument is a spec ID such as `FS-012`. If none is given, run `python <plugin>/scripts/spec_tool.py index` and ask which one to plan. `<plugin>` is two folders up from this file.
+The argument is a spec ID such as `FS-012`. If none is given, run `python <plugin>/scripts/spec_tool.py index` and ask which one to plan. `<plugin>/scripts/spec_tool.py` is `<this skill's folder>/../../scripts/spec_tool.py`.
 
 Run `python <plugin>/scripts/spec_tool.py plan FS-NNN` from the repository root, and show the user its output unchanged.
 

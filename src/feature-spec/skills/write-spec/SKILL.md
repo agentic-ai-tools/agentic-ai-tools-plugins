@@ -7,7 +7,7 @@ description: Write a feature specification from a prompt, stored with the reposi
 
 The user's prompt is the argument given with this skill. If there is none, ask for it.
 
-`ST` below means `python <plugin>/scripts/spec_tool.py`, where `<plugin>` is two folders up from this file. Run every command from the root of the repository the feature is built in. A spec only covers work done in that repository.
+`ST` below means `python <plugin>/scripts/spec_tool.py`, that is, `python <this skill's folder>/../../scripts/spec_tool.py`. Run every command from the root of the repository the feature is built in. A spec only covers work done in that repository.
 
 Scripts do everything that is deterministic. Do not hand-edit IDs, index files, or deprecation markers.
 
